@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {seed,validate,match,csv} from '../dist/model.js';
+test('示範資料可以備份及還原',()=>assert.deepEqual(validate(JSON.parse(JSON.stringify(seed()))),seed()));
+test('拒絕遺失人才關聯',()=>{const s=seed();s.talents=[];assert.throws(()=>validate(s));});
+test('拒絕同人才同職缺重複推薦',()=>{const s=seed();s.referrals.push({...s.referrals[0],id:'new'});assert.throws(()=>validate(s));});
+test('拒絕不合法日期、階段與負介紹費',()=>{for(const patch of [{date:'2026-02-30'},{stage:'unknown'},{fee:-1}]){const s=seed();Object.assign(s.referrals[0],patch);assert.throws(()=>validate(s));}});
+test('拒絕重複編號、無效薪資與備份版本',()=>{for(const edit of [s=>s.talents.push(s.talents[0]),s=>s.jobs[0].salary=Infinity,s=>s.version=2]){const s=seed();edit(s);assert.throws(()=>validate(s));}});
+test('技能配對使用完整字詞且不區分大小寫',()=>{assert.equal(match({skills:'React, UX'},{skills:'react,TypeScript'}),50);assert.equal(match({skills:'JavaScript'},{skills:'Java'}),0);assert.equal(match({skills:'React'},{skills:''}),0);});
+test('CSV 跳脫引號與阻止公式',()=>{const out=csv([['=SUM(A1)','a"b','一般']]);assert.equal(out,'\uFEFF"\'=SUM(A1)","a""b","一般"');});
